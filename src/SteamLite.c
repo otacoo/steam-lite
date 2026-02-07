@@ -4,7 +4,7 @@
 #include <shlobj.h>
 #include <objbase.h>
 
-#define STEAMLITE_VERSION L"v1.0.0"
+#define STEAMLITE_VERSION L"v1.0.1"
 #define INI_SECTION   L"SteamLite"
 #define IDC_SAVE      1
 #define IDC_QUIT      2
@@ -18,6 +18,7 @@
 #define IDC_CEF_AUTOMATIC     107
 #define IDC_DONT_SHOW_LAUNCH  108
 #define IDC_DONT_SHOW_TRAY    109
+#define IDC_ENABLE_CONSOLE   110
 #define WM_STEAMLITE_REMOVE_TRAY  (WM_APP + 0)
 
 static HINSTANCE g_hModule;
@@ -82,12 +83,14 @@ static void CreateSteamShortcut(void)
     DWORD noJoy = LoadOptionIni(iniPath, L"NoJoystick", 0);
     DWORD noShaders = LoadOptionIni(iniPath, L"NoShaders", 1);
     DWORD noGpu = LoadOptionIni(iniPath, L"NoGPU", 1);
+    DWORD console = LoadOptionIni(iniPath, L"Console", 1);
     strcpy_w(args, launchMin ? L"-silent " : L"");
     strcat_w(args, L"-quicklogin -forceservice -vrdisable -oldtraymenu -nofriendsui -no-dwrite ");
     if (noJoy) strcat_w(args, L"-nojoy ");
     if (noShaders) strcat_w(args, L"-noshaders ");
     if (noGpu) strcat_w(args, L"-nodirectcomp -cef-disable-gpu -cef-disable-gpu-sandbox ");
-    strcat_w(args, L"-cef-allow-browser-underlay -cef-delaypageload -cef-force-occlusion -cef-disable-hang-timeouts -console");
+    strcat_w(args, L"-cef-force-occlusion -cef-disable-hang-timeouts");
+    if (console) strcat_w(args, L" -console");
 
     WCHAR shortcutPath[MAX_PATH] = {};
     if (FAILED(SHGetFolderPathW(NULL, CSIDL_DESKTOP, NULL, 0, shortcutPath)))
@@ -135,6 +138,8 @@ static LRESULT CALLBACK OptionsDialogProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
             SaveOptionIni(iniPath, L"NoShaders", noShaders);
             DWORD noGpu = (SendMessageW(GetDlgItem(hWnd, IDC_NO_GPU), BM_GETCHECK, 0, 0) == BST_CHECKED);
             SaveOptionIni(iniPath, L"NoGPU", noGpu);
+            DWORD console = (SendMessageW(GetDlgItem(hWnd, IDC_ENABLE_CONSOLE), BM_GETCHECK, 0, 0) == BST_CHECKED);
+            SaveOptionIni(iniPath, L"Console", console);
             v = (SendMessageW(GetDlgItem(hWnd, IDC_ANIMATED_AVATARS), BM_GETCHECK, 0, 0) == BST_CHECKED);
             SaveOptionIni(iniPath, L"FriendsAnimed", v);
             v = (SendMessageW(GetDlgItem(hWnd, IDC_SHOW_GAME_ICONS), BM_GETCHECK, 0, 0) == BST_CHECKED);
@@ -151,7 +156,7 @@ static LRESULT CALLBACK OptionsDialogProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
                 HWND hTray = FindWindowW(L" ", NULL);
                 if (hTray) PostMessageW(hTray, WM_STEAMLITE_REMOVE_TRAY, 0, 0);
             }
-            if (launchMin || noJoy || noShaders || noGpu)
+            if (launchMin || noJoy || noShaders || noGpu || console)
                 CreateSteamShortcut();
             RegSetKeyValueW(HKEY_CURRENT_USER, L"SOFTWARE\\Valve\\Steam", L"RunningAppID", REG_DWORD,
                             &(DWORD){0u}, sizeof(DWORD));
@@ -181,12 +186,12 @@ static HWND CreateOptionsDialog(HWND hParent)
 
     HWND hDlg = CreateWindowExW(0, wc.lpszClassName, L"Steam Lite - Options",
                                 WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
-                                100, 100, 380, 392, hParent, NULL, wc.hInstance, NULL);
+                                100, 100, 380, 404, hParent, NULL, wc.hInstance, NULL);
     if (!hDlg) return NULL;
 
     WCHAR iniPath[MAX_PATH];
     get_ini_path(iniPath);
-    DWORD def[10] = {0, 1, 0, 1, 1, 0, 0, 1, 0, 0};
+    DWORD def[11] = {0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1};
     def[0] = LoadOptionIni(iniPath, L"FriendsSignIn", 0);
     def[1] = LoadOptionIni(iniPath, L"LaunchMinimized", 1);
     def[2] = LoadOptionIni(iniPath, L"NoJoystick", 0);
@@ -197,6 +202,7 @@ static HWND CreateOptionsDialog(HWND hParent)
     def[7] = LoadOptionIni(iniPath, L"CEFAutomatic", 1);
     def[8] = LoadOptionIni(iniPath, L"DontShowOnLaunch", 0);
     def[9] = LoadOptionIni(iniPath, L"DontShowSystray", 0);
+    def[10] = LoadOptionIni(iniPath, L"Console", 1);
 
     CreateWindowExW(0, L"Static", L"Shortcut Options:",
                     WS_CHILD | WS_VISIBLE, 16, 10, 200, 16, hDlg, NULL, wc.hInstance, NULL);
@@ -206,10 +212,10 @@ static HWND CreateOptionsDialog(HWND hParent)
     CreateWindowExW(0, L"Button", L"Launch minimized",
                     WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 54, 320, 18, hDlg, (HMENU)IDC_LAUNCH_MINIMIZED,
                     wc.hInstance, NULL);
-    CreateWindowExW(0, L"Button", L"No joystick",
+    CreateWindowExW(0, L"Button", L"No joystick (disables gamepads)",
                     WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 76, 320, 18, hDlg, (HMENU)IDC_NO_JOYSTICK,
                     wc.hInstance, NULL);
-    CreateWindowExW(0, L"Button", L"No shaders",
+    CreateWindowExW(0, L"Button", L"No shaders (CEF)",
                     WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 98, 320, 18, hDlg, (HMENU)IDC_NO_SHADERS,
                     wc.hInstance, NULL);
     CreateWindowExW(0, L"Button", L"No GPU (CEF)",
@@ -221,23 +227,26 @@ static HWND CreateOptionsDialog(HWND hParent)
     CreateWindowExW(0, L"Button", L"Show game icons",
                     WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 164, 320, 18, hDlg, (HMENU)IDC_SHOW_GAME_ICONS,
                     wc.hInstance, NULL);
+    CreateWindowExW(0, L"Button", L"Enable Steam console",
+                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 186, 320, 18, hDlg, (HMENU)IDC_ENABLE_CONSOLE,
+                    wc.hInstance, NULL);
     CreateWindowExW(0, L"Button", L"Automatic CEF (disable CEF when a game runs)",
-                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 196, 340, 36, hDlg, (HMENU)IDC_CEF_AUTOMATIC,
+                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 208, 340, 36, hDlg, (HMENU)IDC_CEF_AUTOMATIC,
                     wc.hInstance, NULL);
     CreateWindowExW(0, L"Button", L"Don't show this dialog on launch again",
-                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 238, 340, 18, hDlg, (HMENU)IDC_DONT_SHOW_LAUNCH,
+                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 250, 340, 18, hDlg, (HMENU)IDC_DONT_SHOW_LAUNCH,
                     wc.hInstance, NULL);
     CreateWindowExW(0, L"Button", L"Don't show the systray icon",
-                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 260, 340, 18, hDlg, (HMENU)IDC_DONT_SHOW_TRAY,
+                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 272, 340, 18, hDlg, (HMENU)IDC_DONT_SHOW_TRAY,
                     wc.hInstance, NULL);
-    CreateWindowExW(0, L"Button", L"Save", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 16, 292, 100, 28, hDlg, (HMENU)IDC_SAVE,
+    CreateWindowExW(0, L"Button", L"Save", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 16, 304, 100, 28, hDlg, (HMENU)IDC_SAVE,
                     wc.hInstance, NULL);
-    CreateWindowExW(0, L"Button", L"Close", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 260, 292, 100, 28, hDlg, (HMENU)IDC_QUIT,
+    CreateWindowExW(0, L"Button", L"Close", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 260, 304, 100, 28, hDlg, (HMENU)IDC_QUIT,
                     wc.hInstance, NULL);
     CreateWindowExW(0, L"Static", STEAMLITE_VERSION,
-                    WS_CHILD | WS_VISIBLE | SS_RIGHT, 16, 328, 344, 14, hDlg, NULL, wc.hInstance, NULL);
+                    WS_CHILD | WS_VISIBLE | SS_RIGHT, 16, 340, 344, 14, hDlg, NULL, wc.hInstance, NULL);
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 11; i++)
         SendMessageW(GetDlgItem(hDlg, IDC_FRIENDS_SIGNIN + i), BM_SETCHECK, def[i] ? BST_CHECKED : BST_UNCHECKED, 0);
     return hDlg;
 }
