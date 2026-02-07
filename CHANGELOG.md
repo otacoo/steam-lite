@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.1] - 2025-02-07
+
+- Add -console as an option
+- Fix bug with shortcut path being truncated
+
 ## [1.0.0] - 2025-02-07
 
 ### Initial Release
