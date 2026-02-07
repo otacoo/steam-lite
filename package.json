@@ -1,16 +1,14 @@
 {
   "name": "steam-lite",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A small DLL that reduces Steam's resource use by controlling CEF and offering lightweight launch options.",
   "license": "GPL-3.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/otacoo/steam-lite.git"
   },
-  "keywords": [
-    "steam",
-    "cef",
-    "dll",
-    "windows"
-  ]
+  "keywords": ["steam", "cef", "dll", "windows"],
+  "scripts": {
+    "version": "node scripts/sync-version.js"
+  }
 }
