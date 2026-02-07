@@ -7,7 +7,7 @@ A tiny program to condense Steam’s resource usage by controlling its CEF (Chro
 </p>
 
 > [!NOTE]
->**Steam Lite is a DLL** that Steam loads at startup (it replaces the system DLL `user32.dll` when placed in the Steam folder).\
+>**Steam Lite is a DLL** that Steam will load at startup (it replaces the system DLL `user32.dll` when placed in the Steam folder).\
 > Once loaded, it presents an options dialog on first run and a system-tray icon for quick CEF toggling.
 
 ## What it does
@@ -15,10 +15,10 @@ A tiny program to condense Steam’s resource usage by controlling its CEF (Chro
 - **CEF control** – Turn CEF off, leave it on, or set it to **Automatic** (off while a game is running, on when no game is running).
   
 - **Launch Options** – Configure Steam's launch options: launch minimized, no joystick, no GPU for CEF.\
-  If no options are checked, no shortcut is created.
+  If no options are checked, no shortcut is created.
 
 - **Desktop shortcut** – When you save options, Steam Lite creates or updates a **Steam Lite** shortcut on your Desktop that starts Steam with the chosen launch options.\
-   Use this shortcut instead of `steam.exe` to launch Steam.
+ Use this shortcut instead of `steam.exe` to launch Steam.
 
 - **Config file** – All options are stored in **`SteamLite.ini`** in the same folder as the DLL (Steam root directory).
 
@@ -49,22 +49,23 @@ Steam Lite is built with **GCC** in an **MSYS2** environment.
 
 2. Launch MSYS2 **UCRT64** and update:
 
-   ```bash
-   pacman -Syu --noconfirm
-   ```
+```bash
+pacman -Syu --noconfirm
+```
 
 3. Install the required gcc MinGW toolchain:
 
-   ```bash
-   pacman -S mingw-w64-ucrt-x86_64-gcc --noconfirm
-   ```
+```bash
+pacman -S mingw-w64-ucrt-x86_64-gcc --noconfirm
+```
 
 4. Browse to the project directory, and run the build script:
 
-   ```bash
-   cd /path/to/SteamLite
-   ./build.sh
-   ```
+```bash
+cd /path/to/SteamLite
+./build.sh
+```
+   
 5. The built DLL will be at **`src/bin/user32.dll`**.
 
 ## Credits
