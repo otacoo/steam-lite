@@ -344,6 +344,72 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     return DefWindowProcW(hWnd, uMsg, wParam, lParam);
 }
 
+static DWORD WINAPI MonitorThreadProc(LPVOID lpParam)
+{
+    DWORD dwEventThread = (DWORD)(ULONG_PTR)lpParam;
+    HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, dwEventThread);
+    if (!hThread) return 0;
+
+    HKEY hKey = NULL;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"SOFTWARE\\Valve\\Steam", 0, KEY_NOTIFY | KEY_QUERY_VALUE, &hKey) !=
+        ERROR_SUCCESS)
+    {
+        CloseHandle(hThread);
+        return 0;
+    }
+
+    WCHAR iniPath[MAX_PATH];
+    get_ini_path(iniPath);
+
+    while (RegNotifyChangeKeyValue(hKey, FALSE, REG_NOTIFY_CHANGE_LAST_SET, NULL, FALSE) == ERROR_SUCCESS)
+    {
+        DWORD mode = LoadOptionIni(iniPath, L"Mode", 3);
+        DWORD runningAppId = 0;
+        DWORD cb = sizeof(runningAppId);
+        RegGetValueW(hKey, NULL, L"RunningAppID", RRF_RT_REG_DWORD, NULL, &runningAppId, &cb);
+
+        BOOL killCef = FALSE;
+        if (mode == 3)
+            killCef = (runningAppId != 0);
+        else if (mode == 2)
+            killCef = TRUE;
+
+        ResumeThread(hThread);
+        if (killCef)
+            SuspendThread(hThread);
+
+        if (killCef)
+        {
+            WTS_PROCESS_INFOW *pInfo = NULL;
+            DWORD count = 0;
+            if (WTSEnumerateProcessesW(WTS_CURRENT_SERVER_HANDLE, 0, 1, &pInfo, &count))
+            {
+                for (DWORD i = 0; i < count; i++)
+                {
+                    if (CompareStringOrdinal(pInfo[i].pProcessName, -1, L"steamwebhelper.exe", -1, TRUE) == CSTR_EQUAL)
+                    {
+                        HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE,
+                                                      pInfo[i].ProcessId);
+                        if (hProcess)
+                        {
+                            PROCESS_BASIC_INFORMATION pbi = {};
+                            NtQueryInformationProcess(hProcess, ProcessBasicInformation, &pbi, sizeof(pbi), NULL);
+                            if (pbi.InheritedFromUniqueProcessId == GetCurrentProcessId())
+                                TerminateProcess(hProcess, EXIT_SUCCESS);
+                            CloseHandle(hProcess);
+                        }
+                    }
+                }
+                WTSFreeMemory(pInfo);
+            }
+        }
+    }
+
+    RegCloseKey(hKey);
+    CloseHandle(hThread);
+    return 0;
+}
+
 static VOID CALLBACK WinEventProc(HWINEVENTHOOK hWinEventHook, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
                                   DWORD dwEventThread, DWORD dwmsEventTime)
 {
@@ -354,43 +420,12 @@ static VOID CALLBACK WinEventProc(HWINEVENTHOOK hWinEventHook, DWORD event, HWND
         GetWindowTextLengthW(hwnd) < 1)
         return;
 
+    static volatile LONG initialized = 0;
+    if (InterlockedCompareExchange(&initialized, 1, 0))
+        return;
+
     CloseHandle(CreateThread(NULL, 0, ThreadProc, (LPVOID)FALSE, 0, NULL));
-
-    HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, dwEventThread);
-    HKEY hKey = NULL;
-    RegOpenKeyExW(HKEY_CURRENT_USER, L"SOFTWARE\\Valve\\Steam", REG_OPTION_NON_VOLATILE, KEY_NOTIFY | KEY_QUERY_VALUE,
-                  &hKey);
-
-    while (!RegNotifyChangeKeyValue(hKey, FALSE, REG_NOTIFY_CHANGE_LAST_SET, NULL, FALSE))
-    {
-        BOOL _ = FALSE;
-        RegGetValueW(hKey, NULL, L"RunningAppID", RRF_RT_REG_DWORD, NULL, (PVOID)&_, &((DWORD){sizeof(BOOL)}));
-        (_ ? SuspendThread : ResumeThread)(hThread);
-        if (_)
-        {
-            WTS_PROCESS_INFOW *pProcessInfo = {};
-            DWORD $ = {};
-
-            WTSEnumerateProcessesW(WTS_CURRENT_SERVER_HANDLE, 0, 1, &pProcessInfo, &$);
-            for (DWORD _ = {}; _ < $; _++)
-                if (CompareStringOrdinal(pProcessInfo[_].pProcessName, -1, L"steamwebhelper.exe", -1, TRUE) ==
-                    CSTR_EQUAL)
-                {
-                    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE,
-                                                  pProcessInfo[_].ProcessId);
-
-                    PROCESS_BASIC_INFORMATION _ = {};
-                    NtQueryInformationProcess(hProcess, ProcessBasicInformation, &_, sizeof(PROCESS_BASIC_INFORMATION),
-                                              NULL);
-
-                    if (_.InheritedFromUniqueProcessId == GetCurrentProcessId())
-                        TerminateProcess(hProcess, EXIT_SUCCESS);
-
-                    CloseHandle(hProcess);
-                }
-            WTSFreeMemory(pProcessInfo);
-        }
-    }
+    CloseHandle(CreateThread(NULL, 0, MonitorThreadProc, (LPVOID)(ULONG_PTR)dwEventThread, 0, NULL));
 }
 
 static DWORD WINAPI ThreadProc(LPVOID lpParameter)
