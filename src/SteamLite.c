@@ -156,8 +156,7 @@ static LRESULT CALLBACK OptionsDialogProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
                 HWND hTray = FindWindowW(L" ", NULL);
                 if (hTray) PostMessageW(hTray, WM_STEAMLITE_REMOVE_TRAY, 0, 0);
             }
-            if (launchMin || noJoy || noShaders || noGpu || console)
-                CreateSteamShortcut();
+            CreateSteamShortcut();
             RegSetKeyValueW(HKEY_CURRENT_USER, L"SOFTWARE\\Valve\\Steam", L"RunningAppID", REG_DWORD,
                             &(DWORD){0u}, sizeof(DWORD));
             DestroyWindow(hWnd);
