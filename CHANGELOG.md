@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2] - 2025-06-20
+
+- Fix an issue where the gamepad was still being disabled despite -nojoy being unchecked
+- Fix WinEventProc blocking the main thread and suspending Steam UI thread at startup
+- Fix shortcut not being updated when all shortcut options were unchecked
+- Fix a leak that was occurring on every CEF window creation
+- Fix CEF mode set with the tray being ignored by the monitor thread: "Enable CEF" no longer disables CEF when a game runs
+
 ## [1.0.1] - 2025-02-07
 
 - Add -console as an option

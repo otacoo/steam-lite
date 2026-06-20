@@ -4,7 +4,7 @@
 #include <shlobj.h>
 #include <objbase.h>
 
-#define STEAMLITE_VERSION L"v1.0.1"
+#define STEAMLITE_VERSION L"v1.0.2"
 #define INI_SECTION   L"SteamLite"
 #define IDC_SAVE      1
 #define IDC_QUIT      2
